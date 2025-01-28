@@ -155,6 +155,7 @@ task-management-api/
 │   ├── test_auth.py
 │   ├── test_database.py
 │   └── test_utils.py
+├── test_env/          # Test environment directory == u can use it if you like
 ├── README.md
 └── requirements.txt
 ```
