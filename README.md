@@ -139,15 +139,24 @@ Modify the following variables in the `auth.py` file for security:
 
 ## Project Structure
 
-```plaintext
-project/
-├── main.py          # Entry point for the FastAPI application
-├── auth.py          # Authentication logic and JWT handling
-├── utils.py         # Utility functions (password hashing, etc.)
-├── models.py        # Pydantic models for API requests and responses
-├── database.py      # Database setup and schema creation
-├── requirements.txt # Dependencies for the project
-├── __init__.py      # Package initialization
+```
+task-management-api/
+├── app/
+│   ├── __init__.py
+│   ├── auth.py
+│   ├── database.py
+│   ├── main.py
+│   ├── models.py
+│   └── utils.py
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_api.py
+│   ├── test_auth.py
+│   ├── test_database.py
+│   └── test_utils.py
+├── README.md
+└── requirements.txt
 ```
 
 ---
