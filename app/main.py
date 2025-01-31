@@ -1,16 +1,49 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Query
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.openapi.utils import get_openapi
 import sqlite3
 from datetime import timedelta
 from models import User, Task, Category
 from database import get_db_connection
-from auth import create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, oauth2_scheme
+from auth import create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, \
+    oauth2_scheme
 from utils import hash_password, verify_password
 
-app = FastAPI()
+app = FastAPI(
+    title="Task Management API",
+    description="API for managing tasks, users, and categories",
+    version="1.0.0",
+    swagger_ui_parameters={"defaultModelsExpandDepth": -1},
+)
 
 
-# function to get the database connection
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title="Task Management API",
+        version="1.0.0",
+        description="API for managing tasks, users, and categories",
+        routes=app.routes,
+    )
+
+    # Merge existing components with security schemes
+    components = openapi_schema.get("components", {})
+    components.setdefault("securitySchemes", {}).update({
+        "OAuth2PasswordBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    })
+    openapi_schema["components"] = components
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 
 
 # User registration
@@ -32,6 +65,7 @@ def register(user: User):
     finally:
         conn.close()
 
+
 # User login
 @app.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -43,8 +77,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     if not user or not verify_password(form_data.password, user["password"]):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user["username"], "role": user["role"]}, expires_delta=access_token_expires)
+    access_token = create_access_token(
+        data={"sub": user["username"], "role": user["role"]},
+        expires_delta=access_token_expires
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
 
 # Admin-only endpoint
 @app.get("/admin")
@@ -52,6 +90,7 @@ def admin_only(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     return {"message": "Welcome, admin!"}
+
 
 # Create a category (protected endpoint)
 @app.post("/categories")
@@ -71,6 +110,7 @@ def create_category(category: Category, current_user: dict = Depends(get_current
     finally:
         conn.close()
 
+
 # Create a task (protected endpoint)
 @app.post("/tasks")
 def create_task(task: Task, current_user: dict = Depends(get_current_user)):
@@ -89,33 +129,29 @@ def create_task(task: Task, current_user: dict = Depends(get_current_user)):
     finally:
         conn.close()
 
+
 # Get all tasks with pagination (protected endpoint)
 @app.get("/tasks")
 def get_tasks(
-    page: int = Query(1, ge=1, description="Page number (starting from 1)"),
-    limit: int = Query(10, ge=1, le=100, description="Number of tasks per page (max 100)"),
-    current_user: dict = Depends(get_current_user)
+        page: int = Query(1, ge=1, description="Page number (starting from 1)"),
+        limit: int = Query(10, ge=1, le=100, description="Number of tasks per page (max 100)"),
+        current_user: dict = Depends(get_current_user)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Calculate offset
     offset = (page - 1) * limit
 
-    # Fetch paginated tasks
-    cursor.execute('SELECT * FROM tasks WHERE user_id = ? LIMIT ? OFFSET ?', (current_user["id"], limit, offset))
+    cursor.execute('SELECT * FROM tasks WHERE user_id = ? LIMIT ? OFFSET ?',
+                   (current_user["id"], limit, offset))
     tasks = cursor.fetchall()
 
-    # Fetch total number of tasks for pagination metadata
     cursor.execute('SELECT COUNT(*) FROM tasks WHERE user_id = ?', (current_user["id"],))
     total_items = cursor.fetchone()[0]
-
-    # Calculate total pages
     total_pages = (total_items + limit - 1) // limit
 
     conn.close()
 
-    # Check if tasks are empty
     if not tasks:
         return {
             "tasks": [],
@@ -138,6 +174,7 @@ def get_tasks(
         }
     }
 
+
 # Get tasks for a specific user (protected endpoint)
 @app.get("/users/{user_id}/tasks")
 def get_user_tasks(user_id: int, current_user: dict = Depends(get_current_user)):
@@ -153,6 +190,7 @@ def get_user_tasks(user_id: int, current_user: dict = Depends(get_current_user))
         return {"tasks": [], "message": "No tasks found for this user."}
 
     return {"tasks": tasks}
+
 
 # Get all users (protected endpoint)
 @app.get("/users")
@@ -170,6 +208,7 @@ def get_users(current_user: dict = Depends(get_current_user)):
 
     return {"users": users}
 
+
 # Get a specific user (protected endpoint)
 @app.get("/users/{user_id}")
 def get_user(user_id: int, current_user: dict = Depends(get_current_user)):
@@ -186,6 +225,7 @@ def get_user(user_id: int, current_user: dict = Depends(get_current_user)):
 
     return dict(user)
 
+
 # Get all categories (protected endpoint)
 @app.get("/categories")
 def get_categories(current_user: dict = Depends(get_current_user)):
@@ -199,6 +239,7 @@ def get_categories(current_user: dict = Depends(get_current_user)):
         return {"categories": [], "message": "No categories found."}
 
     return {"categories": categories}
+
 
 # Get a specific category (protected endpoint)
 @app.get("/categories/{category_id}")

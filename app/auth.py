@@ -12,8 +12,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 # OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 # Helper function to create access token
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
